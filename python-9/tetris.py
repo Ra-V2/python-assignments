@@ -13,6 +13,7 @@ WINDOW_WIDTH = WIDTH + NEXT_SHAPE_WIDTH + 3 * PADDING
 INITIAL_FPS = 45
 DROP_SPEED_INCREASE_INTERVAL = 4
 DROP_SPEED_INCREASE_AMOUNT = 1
+AUDIO_ON = True
 
 # Colors
 WHITE = (255, 255, 255)
@@ -92,14 +93,15 @@ def merge_grid(surface, grid, shape, x, y, color):
                 pg.draw.rect(surface, color, rect)
                 pg.draw.rect(surface, BLACK, rect, 1)
 
-def check_line(grid, line_clear_sound):
+def check_line(grid, line_clear_sound = None):
     lines = 0
     for i in range(len(grid)):
         if all(grid[i]):
             grid.pop(i)
             grid.insert(0, [0] * GRID_WIDTH)
             lines += 1
-            line_clear_sound.play()
+            if(line_clear_sound):
+                line_clear_sound.play()
     return lines
 
 def new_shape(last_shape=None):
@@ -131,12 +133,30 @@ def draw_next_shape(surface, shape, color):
                 pg.draw.rect(surface, color, rect)
                 pg.draw.rect(surface, BLACK, rect, 1)
 
-def load_music(path):
-    try:
-        pg.mixer.music.load(path)
-        pg.mixer.music.play(-1)
-    except pg.error:
-        print(f"Unable to load music at {path}")
+def load_sounds_and_music(path):
+    global AUDIO_ON
+    if AUDIO_ON:
+        try:
+            music_path = os.path.join(path, "assets", "background_music.mp3")
+            pg.mixer.music.load(music_path)
+            pg.mixer.music.play(-1)
+            line_clear_sound_path = os.path.abspath(os.path.join(path, "assets", "clear.mp3"))
+            return pg.mixer.Sound(line_clear_sound_path)
+        except pg.error:
+            print(f"Unable to load music at {path}")
+            return None
+    return None
+
+def toggle_audio(screen, button_rect, font):
+    global AUDIO_ON
+    AUDIO_ON = not AUDIO_ON
+    button_text = "Audio: ON" if AUDIO_ON else "Audio: OFF"
+    button_color = GREEN if AUDIO_ON else RED
+    pg.draw.rect(screen, button_color, button_rect)
+    text = font.render(button_text, True, WHITE)
+    text_rect = text.get_rect(center=button_rect.center)
+    screen.blit(text, text_rect)
+    pg.display.flip()
 
 def main():
     pg.init()
@@ -162,11 +182,7 @@ def main():
     move_delay = 0
 
     project_folder = os.path.dirname(__file__)
-    music_path = os.path.join(project_folder, "assets", "background_music.mp3")
-    load_music(music_path)
-
-    line_clear_sound_path = os.path.join(project_folder, "assets", "clear.mp3")
-    line_clear_sound = pg.mixer.Sound(line_clear_sound_path)
+    line_clear_sound = load_sounds_and_music(project_folder)
 
     running = True
     while running:
@@ -284,6 +300,10 @@ def display_start_screen(screen):
     screen.blit(shadow, shadow_rect)
     screen.blit(text, text_rect)
 
+    button_rect = pg.Rect(WINDOW_WIDTH - 110, 10, 100, 50)
+    font = pg.font.Font(None, 22)
+    toggle_audio(screen, button_rect, font)
+
     pg.display.flip()
     waiting = True
     while waiting:
@@ -293,6 +313,9 @@ def display_start_screen(screen):
                 exit()
             if event.type == pg.KEYDOWN:
                 waiting = False
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if button_rect.collidepoint(event.pos):
+                    toggle_audio(screen, button_rect, font)
 
     screen.fill(BLACK)
 
